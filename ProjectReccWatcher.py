@@ -19,30 +19,29 @@ def checkFile( my_region ):
     print( "-------------------------------------------------" )
     p = Path(".")
     myfile = p / "static_champ_list.csv"
-    if myfile.exists():
-        fp = open( "static_champ_list.csv", "r" )
-        fp.close()
-    else:
-    
-        champURL = "https://na1.api.riotgames.com/lol/static-data/v3/champions?locale=en_US&champData=stats&tags=tags&tags=info&api_key=" + api_key
-        champNameJSON = requests.get( champURL ).json()
-        #if "status" in champNameJSON:
-        #   print( "Failure to retrieve champion statistics." )
-        #  print( "Error:", *champNameJSON["status"].values(), sep = "  ")
-        fp = open( "static_champ_list.csv", "w" )
-        print( champNameJSON )
-        for champ in champNameJSON["data"]:
-            fp.write( str(champ["id"]) + "," )
-            fp.write(champ["name"] + "," );
-            if champ["tags"].size() > 1:
+    champURL = "https://na1.api.riotgames.com/lol/static-data/v3/champions?locale=en_US&champData=stats&tags=tags&tags=info&api_key=" + api_key
+    champNameJSON = requests.get( champURL ).json()
+    #if "status" in champNameJSON:
+    #   print( "Failure to retrieve champion statistics." )
+    #  print( "Error:", *champNameJSON["status"].values(), sep = "  ")
+    #fp = open( "static_champ_list.csv", "w" )
+    with open("static_champ_list.csv" , "w") as fp:
+        fp.write('primary,secondary,attack,defense,magic,difficulty')
+        print( champNameJSON["data"] )
+        for champ in champNameJSON["data"].values():
+            print('champ: ' , champ)
+            #fp.write( str(champ["id"]) , "," )
+            #fp.write(champ["name"] , "," );
+            if len(champ["tags"]) > 1:
                 for typ in champ["tags"]:
                     fp.write( typ + ",")
             else:
-                fp.write( *champ["tags"] +",null," )
+                fp.write( champ["tags"][0] + ",null," )
             count = 0;
             for item in champ["info"].values():
-                if( count != 2 ):
+                if( count != 3 ):
                     fp.write( str(item) + "," )
+                    count = count + 1
                 else:
                     fp.write( str(item) + "\n" )
         fp.close()
@@ -104,5 +103,5 @@ def getInfo():
           #  print()
           #  infoRetrieved.update( { 0 : gameData } )
                 
-    
+    fp.close()
 getInfo()
