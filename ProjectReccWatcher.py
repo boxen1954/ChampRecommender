@@ -20,7 +20,7 @@ def checkFile( my_region ):
     p = Path(".")
     myfile = p / "static_champ_list.csv"
     champURL = "https://na1.api.riotgames.com/lol/static-data/v3/champions?locale=en_US&champData=stats&tags=tags&tags=info&api_key=" + api_key
-    champNameJSON = requests.get( champURL ).json()
+    champNameJSON = watcher.static_data.champions( "stats", "tags" ).json()
     #if "status" in champNameJSON:
     #   print( "Failure to retrieve champion statistics." )
     #  print( "Error:", *champNameJSON["status"].values(), sep = "  ")
@@ -111,4 +111,6 @@ def getInfo():
         champId = recentMatches['matches'][i]['champion']
         print('gameId: ' + str(recentMatches['matches'][i]['gameId']))
         print('champId: ' + str(recentMatches['matches'][i]['champion']))
+        gameStats = watcher.match.matches(gameId)
+        print('gameStats: ' , gameStats)
 getInfo()
