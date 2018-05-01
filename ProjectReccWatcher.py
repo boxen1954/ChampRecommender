@@ -20,16 +20,17 @@ def checkFile( my_region ):
     p = Path(".")
     myfile = p / "static_champ_list.csv"
     champURL = "https://na1.api.riotgames.com/lol/static-data/v3/champions?locale=en_US&champData=stats&tags=tags&tags=info&api_key=" + api_key
-    champNameJSON = watcher.static_data.champions( "stats", "tags" ).json()
+    static = watcher._static_data
+    champNameJSON = static.champions("na1", tags=['tags','info'])
     #if "status" in champNameJSON:
     #   print( "Failure to retrieve champion statistics." )
     #  print( "Error:", *champNameJSON["status"].values(), sep = "  ")
     #fp = open( "static_champ_list.csv", "w" )
     with open("static_champ_list.csv" , "w") as fp:
         fp.write('id,name,primary,secondary,attack,defense,magic,difficulty' + '\n')
-        print( champNameJSON["data"] )
+        #print( champNameJSON["data"] )
         for champ in champNameJSON["data"].values():
-            print('champ: ' , champ)
+            #print('champ: ' , champ)
             #fp.write( str(champ["id"]) , "," )
             #fp.write(champ["name"] , "," );
             fp.write(str(champ['id']) + ',')
@@ -47,7 +48,6 @@ def checkFile( my_region ):
                 else:
                     fp.write( str(item) + "\n" )
         fp.close()
-        print( "Error creating object" )
         return 0
     print( "Static champion list found." )
     print( "\n\n---------------------------------------\n\n" )
@@ -68,13 +68,13 @@ def getInfo():
         return ""
 
     checkFile( my_region )
-
-    me = watcher.summoner.by_name( my_region, summonerName )
-    
+    me = watcher._summoner.by_name( my_region, summonerName )
+    accountId = me['accountId']
     print("Summoner found.\n\n" )
     print( me )
+    print(accountId)
     print("\n\n------------------------------------------\n\n" )
-    recentMatches = watcher.match.matchlist_by_account_recent( my_region, me["accountId"] )
+    recentMatches = watcher._match.matchlist_by_account(my_region, accountId, begin_index=0, end_index=20)
     print("recent: " , recentMatches)
 #    gameId = []
 #    champPicked = []
@@ -106,11 +106,23 @@ def getInfo():
 #            infoRetrieved.update( { 0 : gameData } )
                 
 #    fp.close()
+    userStats = open('user_Stats.csv', 'w')
+    userStats.write('champId,kills,deaths,assists' + '\n')
     for i in range(len(recentMatches['matches'])):
         gameId = recentMatches['matches'][i]['gameId']
         champId = recentMatches['matches'][i]['champion']
         print('gameId: ' + str(recentMatches['matches'][i]['gameId']))
         print('champId: ' + str(recentMatches['matches'][i]['champion']))
-        gameStats = watcher.match.matches(gameId)
+        gameStats = watcher.match.by_id('na1',gameId)
         print('gameStats: ' , gameStats)
+        for i in range(len(gameStats['participants'])):
+            if gameStats['participants'][i]['championId'] == champId:
+                stat_kills = gameStats['participants'][i]['stats']['kills']
+                print('kills: ' + str(stat_kills))
+                stat_deaths = gameStats['participants'][i]['stats']['deaths']
+                print('deaths: ' + str(stat_deaths))
+                stat_assists = gameStats['participants'][i]['stats']['assists']
+                print('assists: ' + str(stat_assists))
+                userStats.write(str(champId) + ',' + str(stat_kills) + ',' + str(stat_deaths) + ',' + str(stat_assists) + '\n')
+    userStats.close()
 getInfo()
