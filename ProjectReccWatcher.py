@@ -14,6 +14,8 @@ import requests
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+from math import sqrt
+import math
 
 def grabOtherPlayers():
     api_key="RGAPI-0c72f3b7-fccf-4a60-b112-114e69fa3044"
@@ -38,7 +40,8 @@ def grabOtherPlayers():
     print(crossReference)
     count = 0
     for child in soup.find_all("span", { "class" : "name"}):
-        if count != 3:
+        #Number of players wanted
+        if count != 10:
             count = count + 1
             player = child.get_text()
             dicti[player] = {}
@@ -79,9 +82,8 @@ def grabOtherPlayers():
                     pass
         else:
             print(dicti) 
-            break
+            return dicti
           
-               
 def checkFile( my_region ):
     api_key="RGAPI-0c72f3b7-fccf-4a60-b112-114e69fa3044"
     watcher = rw(api_key)
@@ -123,6 +125,62 @@ def checkFile( my_region ):
     print( "Static champion list found." )
     print( "\n\n---------------------------------------\n\n" )
 
+def recommender(summonerName, dicti):
+    ds = computeNearestNeighbor(0, summonerName,dicti)
+    print("Nearest Neighbor: " , ds)
+    print()
+    rec = recommend(0, summonerName, dicti)
+    print("Recommendations:")
+    for r in rec:
+        print(r[0] , " ---> " , r[1])
+#    import operator
+#    staticStats = open(staticInfo, 'r')
+#    token = csv.reader(staticStats, delimiter=',')
+#    champIDToPrimary = {}
+#    numOfPrimary = {}
+#    firstRow = True
+#    champAlreadyPlayed = []
+#    recommendations = []
+#    maxVal = 0
+#    maxVal = float(maxVal)
+#    maxChampId = 0
+#    for row in token:
+#        if firstRow == True:
+#            firstRow = False
+#            pass
+#        else:
+#            championId = row[0]
+#            primaryStat = row[2]
+#            champIDToPrimary[championId] = primaryStat
+#    staticStats.close()
+#    #print("champIDToPrimary: " , champIDToPrimary)
+#    userStats = open(userInfo, 'r')
+#    token1 = csv.reader(userStats, delimiter=',')
+#    firstRow = True
+#    for row1 in token1:
+#        if firstRow == True:
+#            firstRow = False
+#            pass
+#        else:
+#            champId = row1[0]
+#            KDrat = float(row1[4])
+#            print("max: " + str(maxVal))
+#            print("Kd: " + str(KDrat))
+#            if KDrat > maxVal:
+#                maxVal = KDrat
+#                maxChampId = champId
+#            print(maxChampId + "," + maxVal)
+#    userStats.close()
+#    #print(numOfPrimary)
+#    #print(highestCategory)
+#    for c in champIDToPrimary:
+#        value = champIDToPrimary[c]
+#        if value == highestCategory:
+#            if c not in champAlreadyPlayed:
+#                recommendations.append(c)
+#            else:
+#                pass
+
 def getInfo():
     watcher = rw("RGAPI-0c72f3b7-fccf-4a60-b112-114e69fa3044")
     regionList = ["na1", "euw1", "eun1", "kr", "ru", "jp1", "oc1", "tr1", "la1", "la2" ]
@@ -139,6 +197,20 @@ def getInfo():
         return ""
 
     checkFile( my_region )
+    dicti = grabOtherPlayers()
+    static_data = open('static_champ_list.csv','r')
+    crossReference = {}
+    firstRow = True
+    for row in static_data:
+        token = row.split(',')
+        if firstRow == True:
+            firstRow = False
+            pass
+        else:
+            Id = token[0]
+            name = token[1]
+            crossReference[int(Id)] = name
+    static_data.close()
     me = watcher._summoner.by_name( my_region, summonerName )
     accountId = me['accountId']
     print("Summoner found.\n\n" )
@@ -177,8 +249,7 @@ def getInfo():
 #            infoRetrieved.update( { 0 : gameData } )
                 
 #    fp.close()
-    userStats = open('user_Stats.csv', 'w')
-    userStats.write('champId,kills,deaths,assists,KD ratio' + '\n')
+    dicti[summonerName] = {}
     for i in range(len(recentMatches['matches'])):
         gameId = recentMatches['matches'][i]['gameId']
         champId = recentMatches['matches'][i]['champion']
@@ -191,61 +262,106 @@ def getInfo():
                 print('kills: ' + str(stat_kills))
                 stat_deaths = gameStats['participants'][i]['stats']['deaths']
                 print('deaths: ' + str(stat_deaths))
-                stat_assists = gameStats['participants'][i]['stats']['assists']
-                print('assists: ' + str(stat_assists))
                 KDratio =  stat_kills/stat_deaths
                 print('KDRatio: ' + str(KDratio))
-                userStats.write(str(champId) + ',' + str(stat_kills) + ',' + str(stat_deaths) + ',' + str(stat_assists) + ',' + str(KDratio) + '\n')
-    userStats.close()
+                try:
+                    KDrat = stat_kills/stat_deaths
+                except:
+                    KDrat = stat_kills
+                print(KDrat)
+                dicti[summonerName][crossReference[champId]] = KDrat
+    print(dicti)
+    recommender(summonerName, dicti)
     
-def recommend(userInfo, staticInfo):
-    import operator
-    staticStats = open(staticInfo, 'r')
-    token = csv.reader(staticStats, delimiter=',')
-    champIDToPrimary = {}
-    numOfPrimary = {}
-    firstRow = True
-    champAlreadyPlayed = []
+def manhattan(rating1, rating2):
+    """Computes the Manhattan distance. Both rating1 and rating2 are dictionaries
+    """
+    distance = 0
+    commonRatings = False 
+    for key in rating1:
+        if key in rating2:
+            distance += abs(rating1[key] - rating2[key])
+            commonRatings = True
+    if commonRatings:
+        return distance
+    else:
+        return -1 #Indicates no ratings in common
+
+def computeNearestNeighbor(r, username, users):
+    """creates a sorted list of users based on their distance to username"""
+    distances = []
+    for user in users:
+        if user != username:
+            if ( r == 1 ) or ( r == 2 ):
+                distance = minkowski(r, users[user], users[username])
+                distances.append((round(distance, 2), user))
+            if (r == 0 ):
+                distance = pearson(users[user], users[username])
+                distances.append((round(distance, 2), user))
+    # sort based on distance -- closest first
+    if ( r == 1 ) or ( r == 2 ):
+        distances.sort()
+    if( r == 0 ):
+        distances.sort(reverse=True)
+    return distances
+
+
+def recommend(r ,username, users):
+    """Give list of recommendations"""
+    # first find nearest neighbor
+    nearest = computeNearestNeighbor(r, username, users)[0][1]
     recommendations = []
-    maxVal = 0
-    maxVal = float(maxVal)
-    maxChampId = 0
-    for row in token:
-        if firstRow == True:
-            firstRow = False
-            pass
-        else:
-            championId = row[0]
-            primaryStat = row[2]
-            champIDToPrimary[championId] = primaryStat
-    staticStats.close()
-    #print("champIDToPrimary: " , champIDToPrimary)
-    userStats = open(userInfo, 'r')
-    token1 = csv.reader(userStats, delimiter=',')
-    firstRow = True
-    for row1 in token1:
-        if firstRow == True:
-            firstRow = False
-            pass
-        else:
-            champId = row1[0]
-            KDrat = float(row1[4])
-            print("max: " + str(maxVal))
-            print("Kd: " + str(KDrat))
-            if KDrat > maxVal:
-                maxVal = KDrat
-                maxChampId = champId
-            print(maxChampId + "," + maxVal)
-    userStats.close()
-    #print(numOfPrimary)
-    #print(highestCategory)
-    for c in champIDToPrimary:
-        value = champIDToPrimary[c]
-        if value == highestCategory:
-            if c not in champAlreadyPlayed:
-                recommendations.append(c)
-            else:
-                pass
+    # now find bands neighbor rated that user didn't
+    neighborRatings = users[nearest]
+    userRatings = users[username]
+    for artist in neighborRatings:
+        if not artist in userRatings:
+            recommendations.append((artist, neighborRatings[artist]))
+    # using the fn sorted for variety - sort is more efficient
+    return sorted(recommendations, key=lambda artistTuple: artistTuple[1], reverse = True)
+
+def minkowski(r, rating1, rating2):
+    """Computes the Euclidean distance. Both rating1 and rating2 are dictionaries"""
+    distance = 0
+    commonRatings = False 
+    for key in rating1:
+        if key in rating2:
+            distance += math.pow((abs(rating1[key] - rating2[key])), r)
+            commonRatings = True
+    if commonRatings:
+        distance = math.pow(distance, 1/r)
+        return distance
+    else:
+        return -1 #Indicates no ratings in common
+
+def pearson(rating1, rating2):
+    sum_xy = 0
+    sum_x = 0
+    sum_y = 0
+    sum_x2 = 0
+    sum_y2 = 0
+    n = 0
+    for key in rating1:
+        if key in rating2:
+            n += 1
+            x = rating1[key]
+            y = rating2[key]
+            sum_xy += x * y
+            sum_x += x
+            sum_y += y
+            sum_x2 += pow(x, 2)
+            sum_y2 += pow(y, 2)
+    if n == 0:
+        return 0
+    # now compute denominator
+    denominator = (sqrt(sum_x2 - pow(sum_x, 2) / n)
+                   * sqrt(sum_y2 - pow(sum_y, 2) / n))
+    if denominator == 0:
+        return 0
+    else:
+        return (sum_xy - (sum_x * sum_y) / n) / denominator    
+    
+
 def visualize():
     stat = open('static_champ_list.csv' , 'r')
     masterList = []
@@ -294,8 +410,8 @@ def visualize():
         plt.setp(xtickNames, fontsize=10, rotation=90)
         plotno += 1
     plt.show()
-grabOtherPlayers()        
-#getInfo()
-#recommend('user_Stats.csv' , 'static_champ_list.csv')
+
+    
+getInfo()
 #visualize()
     
