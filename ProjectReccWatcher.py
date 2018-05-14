@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from math import sqrt
 import math
 
-def grabOtherPlayers():
+def grabOtherPlayers(my_region):
     api_key="RGAPI-0c72f3b7-fccf-4a60-b112-114e69fa3044"
     watcher = rw(api_key)
     dicti = {}
@@ -37,7 +37,7 @@ def grabOtherPlayers():
             name = token[1]
             crossReference[int(Id)] = name
     static_data.close()
-    print(crossReference)
+    #print(crossReference)
     count = 0
     for child in soup.find_all("span", { "class" : "name"}):
         #Number of players wanted
@@ -50,38 +50,38 @@ def grabOtherPlayers():
             otherPlayerList.append(player)
             me = watcher._summoner.by_name( "na1", player )
             accountId = me['accountId']
-            print("Summoner found.\n\n" )
-            print( me )
-            print(accountId)
-            print("\n\n------------------------------------------\n\n" )
+            print("\n\nStatic Summoner found: ", player, ".\n\n" )
+            #print( me )
+            #print(accountId)
+            #print("\n\n------------------------------------------\n\n" )
             recentMatches = watcher._match.matchlist_by_account("na1", accountId, begin_index=0, end_index=20)
-            print("recent: " , recentMatches)
+            #print("recent: " , recentMatches)
             for i in range(len(recentMatches['matches'])):
                 gameId = recentMatches['matches'][i]['gameId']
                 champId = recentMatches['matches'][i]['champion']
                 if champId not in originalChamps:
                     originalChamps.append(champId)
-                    print('gameId: ' + str(recentMatches['matches'][i]['gameId']))
-                    print('champId: ' + str(recentMatches['matches'][i]['champion']))
+                    #print('gameId: ' + str(recentMatches['matches'][i]['gameId']))
+                    #print('champId: ' + str(recentMatches['matches'][i]['champion']))
                     gameStats = watcher.match.by_id('na1',gameId)
                     for i in range(len(gameStats['participants'])):
                         if gameStats['participants'][i]['championId'] == champId:
                             stat_kills = gameStats['participants'][i]['stats']['kills']
-                            print('kills: ' + str(stat_kills))
+                            #print('kills: ' + str(stat_kills))
                             stat_deaths = gameStats['participants'][i]['stats']['deaths']
-                            print('deaths: ' + str(stat_deaths))
+                            #print('deaths: ' + str(stat_deaths))
                             try:
                                 KDrat = stat_kills/stat_deaths
                             except:
                                 KDrat = stat_kills
-                            print(KDrat)
+                            #print(KDrat)
                             dicti[player][crossReference[champId]] = KDrat
                         else:
                             pass
                 else:
                     pass
         else:
-            print(dicti) 
+            #print(dicti) 
             return dicti
           
 def checkFile( my_region ):
@@ -90,9 +90,6 @@ def checkFile( my_region ):
     print( "Watcher Established." )
     print()
     print( "-------------------------------------------------" )
-    p = Path(".")
-    myfile = p / "static_champ_list.csv"
-    champURL = "https://na1.api.riotgames.com/lol/static-data/v3/champions?locale=en_US&champData=stats&tags=tags&tags=info&api_key=" + api_key
     static = watcher._static_data
     champNameJSON = static.champions(my_region, tags=['tags','info'])
     #if "status" in champNameJSON:
@@ -130,9 +127,10 @@ def recommender(summonerName, dicti):
     print("Nearest Neighbor: " , ds)
     print()
     rec = recommend(0, summonerName, dicti)
-    print("Recommendations:")
+    print("Recommendations based on nearest neighbor:")
     for r in rec:
         print(r[0] , " ---> " , r[1])
+    visualize( rec )
 #    import operator
 #    staticStats = open(staticInfo, 'r')
 #    token = csv.reader(staticStats, delimiter=',')
@@ -186,7 +184,7 @@ def getInfo():
     regionList = ["na1", "euw1", "eun1", "kr", "ru", "jp1", "oc1", "tr1", "la1", "la2" ]
     my_region = input( "Enter your region, press enter to quit. For a list of regions, please type region: " )
     print()
-    while my_region == "region":
+    while (my_region == "region") or (my_region not in regionList):
         print( "The different regions are:" )
         print( *regionList, sep="\n" )
         my_region = input( "Enter your region, press enter to quit. For a list of regions, please type region: " )
@@ -197,7 +195,7 @@ def getInfo():
         return ""
 
     checkFile( my_region )
-    dicti = grabOtherPlayers()
+    dicti = grabOtherPlayers(my_region)
     static_data = open('static_champ_list.csv','r')
     crossReference = {}
     firstRow = True
@@ -213,48 +211,19 @@ def getInfo():
     static_data.close()
     me = watcher._summoner.by_name( my_region, summonerName )
     accountId = me['accountId']
-    print("Summoner found.\n\n" )
-    print( me )
-    print(accountId)
+    print("Summoner found", summonerName, ".\n\n" )
     print("\n\n------------------------------------------\n\n" )
     recentMatches = watcher._match.matchlist_by_account(my_region, accountId, begin_index=0, end_index=20)
-    print("recent: " , recentMatches)
-#    gameId = []
-#    champPicked = []
-#    infoRetrieved = {}
-#    for game in recentMatches["matches"]:
-#        gameId.append( game["gameId"] )
-#        champPicked.append( game["champion"] )
-#    
-#    fp = open( "static_champ_list.csv", "r" )
-#    for line in fp:
-#        print( line )
-#    for x in range( 0, 20 ):
-#    gamePlayed = watcher.match.by_id( my_region, gameId[0] );
-#   print( gamePlayed )
-#    for line in fp:
-#        if champPicked[0] in line:
-#            gameData = {}
-#            string = fp.readline( line ).split(",");
-#            gameData.update( { "champion" : string[1] } )
-#            if "0" in line:
-#                gameData.update( { "tag": string[2] } )
-#                gameData.update( { "info" : [ string[4], string[5], string[6], string[7] ] } )
-#            else:
-#                gameData.update( {"tags", [string[3], string[4]] })
-#                gameData.update( { "info" : [ string[5], string[6], string[7], string[8] ] } )
-#            print( gameData )
-#            print()
-#            print()
-#            infoRetrieved.update( { 0 : gameData } )
-                
-#    fp.close()
+
     dicti[summonerName] = {}
+    champList = {}
     for i in range(len(recentMatches['matches'])):
         gameId = recentMatches['matches'][i]['gameId']
         champId = recentMatches['matches'][i]['champion']
-        print('gameId: ' + str(recentMatches['matches'][i]['gameId']))
-        print('champId: ' + str(recentMatches['matches'][i]['champion']))
+        #print('gameId: ' + str(recentMatches['matches'][i]['gameId']))
+        #print('champId: ' + str(recentMatches['matches'][i]['champion']))
+        if champId not in champList:
+            champList[crossReference[champId]] = []
         gameStats = watcher.match.by_id('na1',gameId)
         for i in range(len(gameStats['participants'])):
             if gameStats['participants'][i]['championId'] == champId:
@@ -262,15 +231,24 @@ def getInfo():
                 print('kills: ' + str(stat_kills))
                 stat_deaths = gameStats['participants'][i]['stats']['deaths']
                 print('deaths: ' + str(stat_deaths))
-                KDratio =  stat_kills/stat_deaths
-                print('KDRatio: ' + str(KDratio))
                 try:
                     KDrat = stat_kills/stat_deaths
                 except:
                     KDrat = stat_kills
-                print(KDrat)
+                print( "KDRatio: ", KDrat )
+                print( "\n" )
                 dicti[summonerName][crossReference[champId]] = KDrat
-    print(dicti)
+                if crossReference[champId] in champList:
+                    champList[crossReference[champId]].append( KDrat )
+    #print(dicti)
+    for item in champList.values():
+        try:
+            newData = sum(item)/len(item)
+            item.clear()
+            item.append(newData)
+        except ZeroDivisionError as e:
+            print( e.with_traceback )
+            pass
     recommender(summonerName, dicti)
     
 def manhattan(rating1, rating2):
@@ -362,7 +340,7 @@ def pearson(rating1, rating2):
         return (sum_xy - (sum_x * sum_y) / n) / denominator    
     
 
-def visualize():
+def visualize( champReccList ):
     stat = open('static_champ_list.csv' , 'r')
     masterList = []
     attackList = []
@@ -372,27 +350,32 @@ def visualize():
     nameList = []
     titles = ['Attacks','Defense','Magic','Difficulty']
     firstRow = True
+    count = 0;
     for row in stat:
+      #  print( champReccList[count][0] )
         token = row.split(',')
+        print( token )
         if firstRow == True:
             firstRow = False
-            pass
         else:
-            attack = token[4]
-            attackList.append(attack)
-            defense = token[5]
-            defenseList.append(defense)
-            magic = token[6]
-            magicList.append(magic)
-            difficulty = token[7]
-            difficultyList.append(difficulty.strip())
-            name = token[1]
-            nameList.append(name)
+            for count in range (0, len(champReccList) ):
+                if champReccList[count][0] in token:
+                    print( "Token found." )
+                    attack = token[4]
+                    attackList.append(attack)
+                    defense = token[5]
+                    defenseList.append(defense)
+                    magic = token[6]
+                    magicList.append(magic)
+                    difficulty = token[7]
+                    difficultyList.append(difficulty.strip())
+                    name = token[1]
+                    nameList.append(name)
     masterList.append(attackList)
     masterList.append(defenseList)
     masterList.append(magicList)
     masterList.append(difficultyList)
-    print(masterList)
+    #print(masterList)
     fig = plt.figure()
     plotno = 221
     for x in range(len(masterList)):
@@ -414,4 +397,5 @@ def visualize():
     
 getInfo()
 #visualize()
+
     
